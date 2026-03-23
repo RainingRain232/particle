@@ -674,6 +674,60 @@
     transform: translateY(0) scale(1);
   }
 
+  .face-speech.highlight {
+    border-color: rgba(0, 232, 216, 0.3);
+    box-shadow:
+      0 0 15px rgba(124, 108, 240, 0.15),
+      0 0 40px rgba(0, 232, 216, 0.08),
+      inset 0 0 20px rgba(124, 108, 240, 0.04);
+    animation: speechPulse 2s ease-in-out infinite, speechShimmer 3s linear infinite;
+    background: linear-gradient(135deg, rgba(10, 10, 30, 0.9), rgba(20, 15, 40, 0.9));
+  }
+  .face-speech.highlight::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px; right: -1px; bottom: -1px;
+    border-radius: 15px;
+    background: linear-gradient(90deg, transparent, rgba(0, 232, 216, 0.15), rgba(124, 108, 240, 0.15), transparent);
+    background-size: 200% 100%;
+    animation: borderSweep 2.5s linear infinite;
+    z-index: -1;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    padding: 1px;
+  }
+  .face-speech.highlight #faceSpeechText {
+    background: linear-gradient(90deg, var(--text-primary), var(--accent-2), var(--accent-1), var(--text-primary));
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: textGradient 4s ease infinite;
+    font-weight: 500;
+    font-style: normal;
+    letter-spacing: 0.02em;
+  }
+  @keyframes speechPulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(124,108,240,0.15), 0 0 40px rgba(0,232,216,0.08), inset 0 0 20px rgba(124,108,240,0.04); }
+    50% { box-shadow: 0 0 25px rgba(124,108,240,0.25), 0 0 60px rgba(0,232,216,0.12), inset 0 0 30px rgba(124,108,240,0.06); }
+  }
+  @keyframes speechShimmer {
+    0% { border-color: rgba(0, 232, 216, 0.3); }
+    33% { border-color: rgba(124, 108, 240, 0.35); }
+    66% { border-color: rgba(255, 107, 157, 0.3); }
+    100% { border-color: rgba(0, 232, 216, 0.3); }
+  }
+  @keyframes borderSweep {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes textGradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
   /* Speech bubble arrow */
   .face-speech::after {
     content: '';
@@ -29923,62 +29977,137 @@ function closeMobileNav() {
     }, talkDuration);
   }
 
-  // Show a custom message in the speech bubble (not a random quote)
+  // Show a custom message in the speech bubble with flashy highlight style
+  const mouthGlow = document.getElementById('mouthGlow');
+  const mouthTeeth = document.getElementById('mouthTeethUpper');
+  const mouthTongue = document.getElementById('mouthTongue');
+  const lowerLipCurve = document.getElementById('lowerLipCurve');
+  const faceContainer = document.querySelector('.face-container');
+  let typewriterInterval = null;
+
   function showCustomSpeech(text, duration) {
     clearInterval(mouthAnimInterval);
+    clearInterval(typewriterInterval);
     clearTimeout(talkTimeout);
 
-    speechText.textContent = text;
+    // Activate highlight style
     speechAuthor.textContent = '';
-    speechBubble.classList.add('visible');
+    speechText.textContent = '';
+    speechBubble.classList.add('visible', 'highlight');
 
+    // Typewriter reveal
+    let charIdx = 0;
+    typewriterInterval = setInterval(() => {
+      if (charIdx <= text.length) {
+        speechText.textContent = text.slice(0, charIdx);
+        charIdx++;
+      } else {
+        clearInterval(typewriterInterval);
+        typewriterInterval = null;
+      }
+    }, 35);
+
+    // Face container glow pulse during speech
+    if (faceContainer) {
+      faceContainer.style.filter = 'brightness(1.15) drop-shadow(0 0 20px rgba(0,232,216,0.2))';
+    }
+
+    // Enhanced mouth animation with teeth, tongue, glow
     let mouthFrame = 0;
     mouthAnimInterval = setInterval(() => {
       mouthFrame++;
-      const openAmount = Math.sin(mouthFrame * 0.8) * 0.5 + 0.5;
-      const ry = openAmount * 6;
-      const yOff = openAmount * 4;
-      mouth.setAttribute('d', `M80,118 L88,${115 + yOff} L95,${117 + yOff * 0.5} L100,${119 + yOff} L105,${117 + yOff * 0.5} L112,${115 + yOff} L120,118`);
-      mouthLower.setAttribute('d', `M84,${120 + yOff * 1.2} L92,${122 + yOff * 1.5} L100,${123 + yOff * 2} L108,${122 + yOff * 1.5} L116,${120 + yOff * 1.2}`);
-      mouthInterior.setAttribute('ry', ry);
-      mouthInterior.setAttribute('cy', 122 + yOff * 0.8);
-    }, 80);
+      // More natural speech: mix multiple sine waves for varied movement
+      const fast = Math.sin(mouthFrame * 0.9) * 0.4;
+      const slow = Math.sin(mouthFrame * 0.35) * 0.3;
+      const micro = Math.sin(mouthFrame * 2.1) * 0.15;
+      const openAmount = Math.max(0, Math.min(1, 0.5 + fast + slow + micro));
+      const ry = openAmount * 8;
+      const yOff = openAmount * 5;
+      const wideOpen = openAmount > 0.6;
 
-    const dur = duration || Math.max(3000, text.length * 50);
+      // Upper mouth
+      mouth.setAttribute('d', `M80,118 L88,${115 + yOff} L95,${117 + yOff * 0.5} L100,${119 + yOff} L105,${117 + yOff * 0.5} L112,${115 + yOff} L120,118`);
+      // Lower lip drops further
+      mouthLower.setAttribute('d', `M84,${120 + yOff * 1.3} L92,${122 + yOff * 1.6} L100,${123 + yOff * 2.2} L108,${122 + yOff * 1.6} L116,${120 + yOff * 1.3}`);
+      // Interior ellipse
+      mouthInterior.setAttribute('ry', ry);
+      mouthInterior.setAttribute('cy', 120 + yOff * 0.8);
+      // Lower lip fullness curve
+      if (lowerLipCurve) {
+        lowerLipCurve.setAttribute('d', `M86,${120 + yOff * 1.4} Q93,${124 + yOff * 1.8} 100,${125 + yOff * 2} Q107,${124 + yOff * 1.8} 114,${120 + yOff * 1.4}`);
+      }
+      // Inner glow
+      if (mouthGlow) {
+        mouthGlow.setAttribute('ry', ry * 0.8);
+        mouthGlow.setAttribute('cy', 120 + yOff * 0.8);
+        mouthGlow.setAttribute('opacity', openAmount * 0.6);
+      }
+      // Teeth visible when mouth is open enough
+      if (mouthTeeth) {
+        const teethY = 119 + yOff * 0.3;
+        const teethDrop = openAmount * 2;
+        mouthTeeth.setAttribute('d', `M90,${teethY} L93,${teethY} L93,${teethY + teethDrop} L96,${teethY + teethDrop} L96,${teethY} L99,${teethY} L99,${teethY + teethDrop} L101,${teethY + teethDrop} L101,${teethY} L104,${teethY} L104,${teethY + teethDrop} L107,${teethY + teethDrop} L107,${teethY} L110,${teethY}`);
+        mouthTeeth.setAttribute('opacity', wideOpen ? 0.08 : 0);
+      }
+      // Tongue peeks when wide open
+      if (mouthTongue) {
+        const tongueRy = wideOpen ? (openAmount - 0.6) * 8 : 0;
+        mouthTongue.setAttribute('ry', tongueRy);
+        mouthTongue.setAttribute('cy', 122 + yOff * 1.2);
+        mouthTongue.setAttribute('opacity', wideOpen ? 0.2 : 0);
+        mouthTongue.setAttribute('cx', 100 + Math.sin(mouthFrame * 0.5) * 2);
+      }
+    }, 50);
+
+    const dur = duration || Math.max(5000, text.length * 60);
     talkTimeout = setTimeout(() => {
       clearInterval(mouthAnimInterval);
+      clearInterval(typewriterInterval);
+      // Smooth close
       let closeFrame = 0;
       const closeInterval = setInterval(() => {
         closeFrame++;
-        const t = 1 - closeFrame / 8;
+        const t = 1 - closeFrame / 12;
         if (t <= 0) {
           clearInterval(closeInterval);
           mouth.setAttribute('d', 'M80,118 L88,115 L95,117 L100,119 L105,117 L112,115 L120,118');
           mouthLower.setAttribute('d', 'M84,120 L92,122 L100,123 L108,122 L116,120');
           mouthInterior.setAttribute('ry', '0');
           mouthInterior.setAttribute('cy', '122');
+          if (lowerLipCurve) lowerLipCurve.setAttribute('d', 'M86,120 Q93,124 100,125 Q107,124 114,120');
+          if (mouthGlow) { mouthGlow.setAttribute('ry', '0'); mouthGlow.setAttribute('opacity', '0'); }
+          if (mouthTeeth) mouthTeeth.setAttribute('opacity', '0');
+          if (mouthTongue) { mouthTongue.setAttribute('ry', '0'); mouthTongue.setAttribute('opacity', '0'); }
+          if (faceContainer) faceContainer.style.filter = '';
           return;
         }
-        const yOff = t * 4;
-        const ry = t * 6;
+        const yOff = t * 5;
+        const ry = t * 8;
         mouth.setAttribute('d', `M80,118 L88,${115 + yOff} L95,${117 + yOff * 0.5} L100,${119 + yOff} L105,${117 + yOff * 0.5} L112,${115 + yOff} L120,118`);
-        mouthLower.setAttribute('d', `M84,${120 + yOff * 1.2} L92,${122 + yOff * 1.5} L100,${123 + yOff * 2} L108,${122 + yOff * 1.5} L116,${120 + yOff * 1.2}`);
+        mouthLower.setAttribute('d', `M84,${120 + yOff * 1.3} L92,${122 + yOff * 1.6} L100,${123 + yOff * 2.2} L108,${122 + yOff * 1.6} L116,${120 + yOff * 1.3}`);
         mouthInterior.setAttribute('ry', ry);
-        mouthInterior.setAttribute('cy', 122 + yOff * 0.8);
+        mouthInterior.setAttribute('cy', 120 + yOff * 0.8);
+        if (mouthGlow) { mouthGlow.setAttribute('ry', ry * 0.8); mouthGlow.setAttribute('opacity', t * 0.6); }
+        if (mouthTeeth) mouthTeeth.setAttribute('opacity', t > 0.5 ? 0.08 : 0);
+        if (mouthTongue) { mouthTongue.setAttribute('ry', t > 0.5 ? (t - 0.5) * 8 : 0); mouthTongue.setAttribute('opacity', t > 0.5 ? 0.2 : 0); }
       }, 50);
-      setTimeout(() => { speechBubble.classList.remove('visible'); }, 500);
+      // Fade out bubble after mouth closes
+      setTimeout(() => {
+        speechBubble.classList.remove('visible');
+        setTimeout(() => { speechBubble.classList.remove('highlight'); }, 400);
+      }, 700);
     }, dur);
   }
 
-  // Timed welcome messages
+  // Timed welcome messages (longer durations)
   setTimeout(() => {
-    showCustomSpeech('Scroll naar onderen voor mijn CV', 6000);
+    showCustomSpeech('Scroll naar onderen voor mijn CV', 10000);
   }, 5000);
   setTimeout(() => {
-    showCustomSpeech('Klik linksbovenin voor een theme', 6000);
+    showCustomSpeech('Klik linksbovenin voor een theme', 10000);
   }, 25000);
   setTimeout(() => {
-    showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing', 8000);
+    showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing', 14000);
   }, 70000);
 
   // Laser animation loop
