@@ -29787,56 +29787,115 @@ function closeMobileNav() {
   }
 
   // ── GLASS SHATTER SYSTEM ──
-  const cracks = [];     // persistent crack patterns
-  const shards = [];     // falling glass shards
+  const cracks = [];
+  const shards = [];
 
   class GlassCrack {
     constructor(x, y) {
       this.x = x;
       this.y = y;
       this.life = 1;
-      this.decay = 0.008;
+      this.decay = 0.005;
+      this.born = performance.now();
       this.branches = [];
-      // Generate 5-8 main cracks radiating outward
-      const numBranches = 5 + Math.floor(Math.random() * 4);
+      this.rings = [];
+      this.fragments = [];
+
+      // 8-14 main cracks radiating outward — much bigger and more jagged
+      const numBranches = 8 + Math.floor(Math.random() * 7);
       for (let i = 0; i < numBranches; i++) {
-        const angle = (Math.PI * 2 / numBranches) * i + (Math.random() - 0.5) * 0.6;
-        const len = 30 + Math.random() * 50;
+        const angle = (Math.PI * 2 / numBranches) * i + (Math.random() - 0.5) * 0.5;
+        const len = 60 + Math.random() * 100;
         const segs = [];
         let cx = 0, cy = 0;
-        const segCount = 3 + Math.floor(Math.random() * 4);
+        const segCount = 5 + Math.floor(Math.random() * 5);
+        let curAngle = angle;
         for (let s = 0; s < segCount; s++) {
-          const segLen = len / segCount;
-          const jitter = (Math.random() - 0.5) * 0.5;
-          cx += Math.cos(angle + jitter) * segLen;
-          cy += Math.sin(angle + jitter) * segLen;
-          segs.push({ x: cx, y: cy });
-          // Sub-branch at some segments
-          if (Math.random() > 0.5 && s > 0) {
-            const subAngle = angle + (Math.random() - 0.5) * 1.2;
-            const subLen = segLen * (0.4 + Math.random() * 0.4);
-            segs.push({
-              x: segs[s - 1].x + Math.cos(subAngle) * subLen,
-              y: segs[s - 1].y + Math.sin(subAngle) * subLen,
-              isSub: true,
-              fromIdx: s - 1
-            });
+          const segLen = len / segCount * (0.7 + Math.random() * 0.6);
+          // Sharp jagged turns
+          curAngle += (Math.random() - 0.5) * 0.9;
+          cx += Math.cos(curAngle) * segLen;
+          cy += Math.sin(curAngle) * segLen;
+          segs.push({ x: cx, y: cy, main: true });
+
+          // Sub-branches fork off at 60-70% of segments
+          if (Math.random() > 0.35 && s > 0) {
+            const subAngle = curAngle + (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.8);
+            let sx = segs[segs.length - 1].x, sy = segs[segs.length - 1].y;
+            const subSegs = 2 + Math.floor(Math.random() * 3);
+            let sa = subAngle;
+            for (let ss = 0; ss < subSegs; ss++) {
+              const sl = segLen * (0.3 + Math.random() * 0.4);
+              sa += (Math.random() - 0.5) * 0.7;
+              sx += Math.cos(sa) * sl;
+              sy += Math.sin(sa) * sl;
+              segs.push({ x: sx, y: sy, isSub: true, fromX: segs[segs.length - (ss === 0 ? 1 : 1)].x, fromY: segs[segs.length - 1].y });
+            }
           }
         }
         this.branches.push(segs);
       }
-      // Connect some crack tips with web lines
+
+      // Concentric stress rings around impact
+      for (let r = 0; r < 3; r++) {
+        const radius = 15 + r * 25 + Math.random() * 15;
+        const pts = [];
+        const numPts = 12 + Math.floor(Math.random() * 8);
+        for (let p = 0; p < numPts; p++) {
+          const pa = (Math.PI * 2 / numPts) * p;
+          const jitter = (Math.random() - 0.5) * radius * 0.35;
+          pts.push({
+            x: Math.cos(pa) * (radius + jitter),
+            y: Math.sin(pa) * (radius + jitter)
+          });
+        }
+        this.rings.push(pts);
+      }
+
+      // Web connections between adjacent branch tips
       this.webs = [];
       for (let i = 0; i < numBranches; i++) {
         const next = (i + 1) % numBranches;
-        const tipA = this.branches[i][this.branches[i].length - 1];
-        const tipB = this.branches[next][this.branches[next].length - 1];
-        if (Math.random() > 0.4) {
-          const mid = {
-            x: (tipA.x + tipB.x) / 2 + (Math.random() - 0.5) * 15,
-            y: (tipA.y + tipB.y) / 2 + (Math.random() - 0.5) * 15
-          };
-          this.webs.push({ a: tipA, b: tipB, mid: mid });
+        const brA = this.branches[i];
+        const brB = this.branches[next];
+        const tipA = brA[brA.length - 1];
+        const tipB = brB[brB.length - 1];
+        if (Math.random() > 0.25) {
+          // Jagged web line with midpoints
+          const numMids = 1 + Math.floor(Math.random() * 2);
+          const mids = [];
+          for (let m = 0; m < numMids; m++) {
+            const frac = (m + 1) / (numMids + 1);
+            mids.push({
+              x: tipA.x + (tipB.x - tipA.x) * frac + (Math.random() - 0.5) * 25,
+              y: tipA.y + (tipB.y - tipA.y) * frac + (Math.random() - 0.5) * 25
+            });
+          }
+          this.webs.push({ a: tipA, b: tipB, mids: mids });
+        }
+        // Also connect mid-branch points
+        if (brA.length > 3 && brB.length > 3 && Math.random() > 0.5) {
+          const midA = brA[Math.floor(brA.length * 0.5)];
+          const midB = brB[Math.floor(brB.length * 0.5)];
+          this.webs.push({ a: midA, b: midB, mids: [{ x: (midA.x + midB.x) / 2 + (Math.random() - 0.5) * 18, y: (midA.y + midB.y) / 2 + (Math.random() - 0.5) * 18 }] });
+        }
+      }
+
+      // Polygonal fragments between cracks (the broken glass panes)
+      for (let i = 0; i < numBranches; i++) {
+        const next = (i + 1) % numBranches;
+        const brA = this.branches[i].filter(s => s.main);
+        const brB = this.branches[next].filter(s => s.main);
+        if (brA.length > 2 && brB.length > 2) {
+          // Inner fragment
+          const frag = [
+            { x: 0, y: 0 },
+            brA[1],
+            brA[Math.min(2, brA.length - 1)],
+            brB[Math.min(2, brB.length - 1)],
+            brB[1]
+          ];
+          this.fragments.push({ pts: frag, refractOffset: Math.random() * 0.03, hue: Math.random() * 360 });
         }
       }
     }
@@ -29846,68 +29905,127 @@ function closeMobileNav() {
     draw(ctx) {
       const a = Math.max(0, this.life);
       if (a <= 0) return;
+      const age = (performance.now() - this.born) / 1000;
+      // Cracks expand in the first 0.3s
+      const expandT = Math.min(1, age / 0.3);
+
       ctx.save();
       ctx.translate(this.x, this.y);
 
+      // Draw fragment polygons (broken glass panes with refraction)
+      for (const frag of this.fragments) {
+        ctx.beginPath();
+        const pts = frag.pts;
+        ctx.moveTo(pts[0].x * expandT, pts[0].y * expandT);
+        for (let p = 1; p < pts.length; p++) {
+          ctx.lineTo(pts[p].x * expandT, pts[p].y * expandT);
+        }
+        ctx.closePath();
+        // Translucent fill simulating refraction
+        ctx.fillStyle = `hsla(${frag.hue}, 20%, 80%, ${a * frag.refractOffset})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(200, 220, 255, ${a * 0.15})`;
+        ctx.lineWidth = 0.3;
+        ctx.stroke();
+      }
+
+      // Draw concentric stress rings
+      for (let ri = 0; ri < this.rings.length; ri++) {
+        const ring = this.rings[ri];
+        const ringAlpha = a * (0.25 - ri * 0.06);
+        if (ringAlpha <= 0) continue;
+        ctx.beginPath();
+        ctx.moveTo(ring[0].x * expandT, ring[0].y * expandT);
+        for (let p = 1; p < ring.length; p++) {
+          ctx.lineTo(ring[p].x * expandT, ring[p].y * expandT);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `rgba(200, 220, 255, ${ringAlpha})`;
+        ctx.lineWidth = 0.5 + (0.3 * a);
+        ctx.stroke();
+      }
+
       // Draw crack lines
       for (const branch of this.branches) {
+        // Outer glow
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (const seg of branch) {
+          if (seg.isSub) continue;
+          ctx.lineTo(seg.x * expandT, seg.y * expandT);
+        }
+        ctx.strokeStyle = `rgba(150, 200, 255, ${a * 0.12})`;
+        ctx.lineWidth = 4 * a;
+        ctx.stroke();
+
         // Main crack line
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        let lastMain = { x: 0, y: 0 };
         for (const seg of branch) {
           if (seg.isSub) continue;
-          ctx.lineTo(seg.x, seg.y);
-          lastMain = seg;
+          ctx.lineTo(seg.x * expandT, seg.y * expandT);
         }
-        ctx.strokeStyle = `rgba(200, 220, 255, ${a * 0.5})`;
-        ctx.lineWidth = 1.2 * a;
+        ctx.strokeStyle = `rgba(200, 225, 255, ${a * 0.55})`;
+        ctx.lineWidth = 1.5 * a;
         ctx.stroke();
 
-        // Bright inner line
+        // Bright white core
         ctx.beginPath();
         ctx.moveTo(0, 0);
         for (const seg of branch) {
           if (seg.isSub) continue;
-          ctx.lineTo(seg.x, seg.y);
+          ctx.lineTo(seg.x * expandT, seg.y * expandT);
         }
-        ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.7})`;
-        ctx.lineWidth = 0.4 * a;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.75})`;
+        ctx.lineWidth = 0.5 * a;
         ctx.stroke();
 
         // Sub-branches
+        let prevSub = null;
         for (const seg of branch) {
-          if (!seg.isSub) continue;
-          const from = branch[seg.fromIdx];
+          if (!seg.isSub) { prevSub = seg; continue; }
+          const from = prevSub || { x: 0, y: 0 };
           ctx.beginPath();
-          ctx.moveTo(from.x, from.y);
-          ctx.lineTo(seg.x, seg.y);
+          ctx.moveTo(from.x * expandT, from.y * expandT);
+          ctx.lineTo(seg.x * expandT, seg.y * expandT);
           ctx.strokeStyle = `rgba(180, 210, 255, ${a * 0.35})`;
-          ctx.lineWidth = 0.6 * a;
+          ctx.lineWidth = 0.7 * a;
           ctx.stroke();
+          prevSub = seg;
         }
       }
 
-      // Draw web connections between crack tips
+      // Web connections
       for (const web of this.webs) {
         ctx.beginPath();
-        ctx.moveTo(web.a.x, web.a.y);
-        ctx.quadraticCurveTo(web.mid.x, web.mid.y, web.b.x, web.b.y);
-        ctx.strokeStyle = `rgba(180, 210, 255, ${a * 0.2})`;
-        ctx.lineWidth = 0.4 * a;
+        ctx.moveTo(web.a.x * expandT, web.a.y * expandT);
+        for (const m of web.mids) {
+          ctx.lineTo(m.x * expandT, m.y * expandT);
+        }
+        ctx.lineTo(web.b.x * expandT, web.b.y * expandT);
+        ctx.strokeStyle = `rgba(180, 215, 255, ${a * 0.22})`;
+        ctx.lineWidth = 0.5 * a;
         ctx.stroke();
       }
 
-      // Central impact point
-      const impR = 4 * a;
+      // Central impact crater
+      const impR = 10 * a * expandT;
       const impG = ctx.createRadialGradient(0, 0, 0, 0, 0, impR);
-      impG.addColorStop(0, `rgba(255, 255, 255, ${a * 0.6})`);
-      impG.addColorStop(0.4, `rgba(200, 220, 255, ${a * 0.2})`);
+      impG.addColorStop(0, `rgba(255, 255, 255, ${a * 0.7})`);
+      impG.addColorStop(0.2, `rgba(200, 230, 255, ${a * 0.35})`);
+      impG.addColorStop(0.5, `rgba(150, 200, 255, ${a * 0.1})`);
       impG.addColorStop(1, 'transparent');
       ctx.beginPath();
       ctx.arc(0, 0, impR, 0, Math.PI * 2);
       ctx.fillStyle = impG;
       ctx.fill();
+
+      // Inner crater ring
+      ctx.beginPath();
+      ctx.arc(0, 0, 6 * expandT, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.4})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
 
       ctx.restore();
     }
@@ -29918,22 +30036,27 @@ function closeMobileNav() {
       this.x = x;
       this.y = y;
       const angle = Math.random() * Math.PI * 2;
-      const speed = 1.5 + Math.random() * 4;
+      const speed = 2 + Math.random() * 6;
       this.vx = Math.cos(angle) * speed;
-      this.vy = Math.sin(angle) * speed - 2;
+      this.vy = Math.sin(angle) * speed - 3;
       this.life = 1;
-      this.decay = 0.012 + Math.random() * 0.008;
+      this.decay = 0.008 + Math.random() * 0.006;
       this.rotation = Math.random() * Math.PI * 2;
-      this.rotSpeed = (Math.random() - 0.5) * 0.2;
-      this.size = 3 + Math.random() * 6;
-      this.hue = hue + (Math.random() - 0.5) * 40;
-      this.gravity = 0.08;
-      // Random triangular shard shape
-      this.shape = [
-        { x: 0, y: -this.size * 0.6 },
-        { x: -this.size * 0.4 + Math.random() * this.size * 0.2, y: this.size * 0.4 },
-        { x: this.size * 0.3 + Math.random() * this.size * 0.2, y: this.size * 0.3 }
-      ];
+      this.rotSpeed = (Math.random() - 0.5) * 0.25;
+      this.size = 4 + Math.random() * 10;
+      this.hue = hue + (Math.random() - 0.5) * 50;
+      this.gravity = 0.06;
+      this.shimmer = Math.random() * Math.PI * 2;
+      // Random polygon shard shape (3-5 vertices)
+      const numVerts = 3 + Math.floor(Math.random() * 3);
+      this.shape = [];
+      for (let v = 0; v < numVerts; v++) {
+        const va = (Math.PI * 2 / numVerts) * v + (Math.random() - 0.5) * 0.6;
+        const vr = this.size * (0.3 + Math.random() * 0.7);
+        this.shape.push({ x: Math.cos(va) * vr, y: Math.sin(va) * vr });
+      }
+      // Pick one edge for the specular highlight
+      this.specEdge = Math.floor(Math.random() * numVerts);
     }
     update() {
       this.x += this.vx;
@@ -29941,6 +30064,7 @@ function closeMobileNav() {
       this.vy += this.gravity;
       this.vx *= 0.99;
       this.rotation += this.rotSpeed;
+      this.shimmer += 0.1;
       this.life -= this.decay;
     }
     draw(ctx) {
@@ -29950,23 +30074,38 @@ function closeMobileNav() {
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rotation);
 
-      // Shard body (translucent glass)
+      // Shard body — translucent glass with refraction tint
       ctx.beginPath();
       ctx.moveTo(this.shape[0].x, this.shape[0].y);
-      ctx.lineTo(this.shape[1].x, this.shape[1].y);
-      ctx.lineTo(this.shape[2].x, this.shape[2].y);
+      for (let v = 1; v < this.shape.length; v++) {
+        ctx.lineTo(this.shape[v].x, this.shape[v].y);
+      }
       ctx.closePath();
-      ctx.fillStyle = `hsla(${this.hue}, 30%, 80%, ${a * 0.12})`;
+      ctx.fillStyle = `hsla(${this.hue}, 25%, 85%, ${a * 0.15})`;
       ctx.fill();
-      ctx.strokeStyle = `hsla(${this.hue}, 50%, 90%, ${a * 0.5})`;
-      ctx.lineWidth = 0.5;
+      // Edge outline
+      ctx.strokeStyle = `hsla(${this.hue}, 40%, 90%, ${a * 0.5})`;
+      ctx.lineWidth = 0.6;
       ctx.stroke();
 
-      // Specular highlight on one edge
+      // Specular shimmer on one edge — flickers
+      const shimmerA = a * (0.3 + Math.sin(this.shimmer) * 0.2);
+      const e1 = this.shape[this.specEdge];
+      const e2 = this.shape[(this.specEdge + 1) % this.shape.length];
       ctx.beginPath();
-      ctx.moveTo(this.shape[0].x, this.shape[0].y);
-      ctx.lineTo(this.shape[1].x, this.shape[1].y);
-      ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.4})`;
+      ctx.moveTo(e1.x, e1.y);
+      ctx.lineTo(e2.x, e2.y);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${shimmerA})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Inner reflection line
+      const cx = (this.shape[0].x + this.shape[1].x + this.shape[Math.floor(this.shape.length / 2)].x) / 3;
+      const cy = (this.shape[0].y + this.shape[1].y + this.shape[Math.floor(this.shape.length / 2)].y) / 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - this.size * 0.15, cy - this.size * 0.1);
+      ctx.lineTo(cx + this.size * 0.15, cy + this.size * 0.1);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.15})`;
       ctx.lineWidth = 0.3;
       ctx.stroke();
 
@@ -30056,8 +30195,8 @@ function closeMobileNav() {
 
       // Glass shatter at impact
       cracks.push(new GlassCrack(clickX, clickY));
-      for (let i = 0; i < 15; i++) {
-        shards.push(new GlassShard(clickX, clickY, Math.random() > 0.5 ? 175 : 265));
+      for (let i = 0; i < 25; i++) {
+        shards.push(new GlassShard(clickX + (Math.random() - 0.5) * 30, clickY + (Math.random() - 0.5) * 30, Math.random() > 0.5 ? 175 : 265));
       }
 
       // Flash the face container
