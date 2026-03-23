@@ -2,12 +2,16 @@
   "name": "particle",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "htmlhint index.html && eslint .",
+    "lint:html": "htmlhint index.html",
+    "lint:js": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -21,6 +25,8 @@
   },
   "homepage": "https://github.com/RainingRain232/particle#readme",
   "devDependencies": {
+    "eslint": "^10.1.0",
+    "htmlhint": "^1.9.2",
     "jsdom": "^29.0.1",
     "vite": "^8.0.1",
     "vitest": "^4.1.0"
