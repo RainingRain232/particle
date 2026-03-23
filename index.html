@@ -29512,15 +29512,22 @@ function closeMobileNav() {
         _drawHolePath(ctx, lx, ly, h);
         ctx.fillStyle = 'rgba(0,0,0,1)';
         ctx.fill();
-        // Soft feathered edge around the jagged hole
-        const g = ctx.createRadialGradient(lx, ly, h.r * 0.7, lx, ly, h.r * 1.2);
-        g.addColorStop(0, 'rgba(0,0,0,0.5)');
-        g.addColorStop(0.5, 'rgba(0,0,0,0.2)');
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.beginPath();
-        ctx.arc(lx, ly, h.r * 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
+        // Expanded feathered edge — draw scaled-up version of the jagged shape
+        if (h.verts) {
+          ctx.beginPath();
+          const featherScale = 1.25;
+          ctx.moveTo(lx + h.verts[0].x * featherScale, ly + h.verts[0].y * featherScale);
+          for (let vi = 1; vi < h.verts.length; vi++) {
+            ctx.lineTo(lx + h.verts[vi].x * featherScale, ly + h.verts[vi].y * featherScale);
+          }
+          ctx.closePath();
+          const g = ctx.createRadialGradient(lx, ly, h.r * 0.5, lx, ly, h.r * 1.3);
+          g.addColorStop(0, 'rgba(0,0,0,0.6)');
+          g.addColorStop(0.5, 'rgba(0,0,0,0.25)');
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.fill();
+        }
       }
       ctx.restore();
     }
@@ -30192,13 +30199,17 @@ function closeMobileNav() {
 
       // Destroy particle canvas at impact point (reveal a.webp behind)
       if (window._laserDestroyHoles) {
-        const holeRadius = (25 + Math.random() * 15) * 1.3;
-        // Generate jagged polygon vertices like a shattered glass hole
-        const numVerts = 10 + Math.floor(Math.random() * 8);
+        const holeRadius = 55 + Math.random() * 35;
+        // Generate jagged polygon — sharp spikes like shattered glass
+        const numVerts = 14 + Math.floor(Math.random() * 10);
         const verts = [];
         for (let vi = 0; vi < numVerts; vi++) {
-          const va = (Math.PI * 2 / numVerts) * vi;
-          const jag = holeRadius * (0.55 + Math.random() * 0.55);
+          const va = (Math.PI * 2 / numVerts) * vi + (Math.random() - 0.5) * 0.3;
+          // Alternate between deep inward jags and long outward spikes
+          const isSpike = Math.random() > 0.45;
+          const jag = isSpike
+            ? holeRadius * (0.85 + Math.random() * 0.4)
+            : holeRadius * (0.35 + Math.random() * 0.35);
           verts.push({ x: Math.cos(va) * jag, y: Math.sin(va) * jag });
         }
         window._laserDestroyHoles.push({ x: clickX, y: clickY, r: holeRadius, verts: verts });
