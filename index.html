@@ -30474,8 +30474,9 @@ function closeMobileNav() {
   setTimeout(() => {
     showCustomSpeech('Klik linksbovenin voor een theme', 10000);
   }, 25000);
-  setTimeout(() => {
+  setTimeout(function repeatCanvasMsg() {
     showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing', 14000);
+    setTimeout(repeatCanvasMsg, 20000);
   }, 70000);
 
   // Laser animation loop

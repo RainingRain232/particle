@@ -364,7 +364,11 @@ describe('Timed welcome messages', () => {
   it('messages are scheduled at correct intervals', () => {
     expect(scriptContent).toMatch(/setTimeout\(\(\)\s*=>\s*\{\s*showCustomSpeech\('Scroll naar onderen[^}]+\},\s*5000\)/);
     expect(scriptContent).toMatch(/setTimeout\(\(\)\s*=>\s*\{\s*showCustomSpeech\('Klik linksbovenin[^}]+\},\s*25000\)/);
-    expect(scriptContent).toMatch(/setTimeout\(\(\)\s*=>\s*\{\s*showCustomSpeech\('Scroll naar het canvas[^}]+\},\s*70000\)/);
+    expect(scriptContent).toMatch(/setTimeout\(function\s+repeatCanvasMsg\(\)\s*\{\s*showCustomSpeech\('Scroll naar het canvas[^)]+\)/);
+  });
+
+  it('canvas message repeats every 20 seconds', () => {
+    expect(scriptContent).toMatch(/setTimeout\(repeatCanvasMsg,\s*20000\)/);
   });
 });
 
