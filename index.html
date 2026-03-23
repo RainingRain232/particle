@@ -29786,6 +29786,194 @@ function closeMobileNav() {
     }
   }
 
+  // ── GLASS SHATTER SYSTEM ──
+  const cracks = [];     // persistent crack patterns
+  const shards = [];     // falling glass shards
+
+  class GlassCrack {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.life = 1;
+      this.decay = 0.008;
+      this.branches = [];
+      // Generate 5-8 main cracks radiating outward
+      const numBranches = 5 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < numBranches; i++) {
+        const angle = (Math.PI * 2 / numBranches) * i + (Math.random() - 0.5) * 0.6;
+        const len = 30 + Math.random() * 50;
+        const segs = [];
+        let cx = 0, cy = 0;
+        const segCount = 3 + Math.floor(Math.random() * 4);
+        for (let s = 0; s < segCount; s++) {
+          const segLen = len / segCount;
+          const jitter = (Math.random() - 0.5) * 0.5;
+          cx += Math.cos(angle + jitter) * segLen;
+          cy += Math.sin(angle + jitter) * segLen;
+          segs.push({ x: cx, y: cy });
+          // Sub-branch at some segments
+          if (Math.random() > 0.5 && s > 0) {
+            const subAngle = angle + (Math.random() - 0.5) * 1.2;
+            const subLen = segLen * (0.4 + Math.random() * 0.4);
+            segs.push({
+              x: segs[s - 1].x + Math.cos(subAngle) * subLen,
+              y: segs[s - 1].y + Math.sin(subAngle) * subLen,
+              isSub: true,
+              fromIdx: s - 1
+            });
+          }
+        }
+        this.branches.push(segs);
+      }
+      // Connect some crack tips with web lines
+      this.webs = [];
+      for (let i = 0; i < numBranches; i++) {
+        const next = (i + 1) % numBranches;
+        const tipA = this.branches[i][this.branches[i].length - 1];
+        const tipB = this.branches[next][this.branches[next].length - 1];
+        if (Math.random() > 0.4) {
+          const mid = {
+            x: (tipA.x + tipB.x) / 2 + (Math.random() - 0.5) * 15,
+            y: (tipA.y + tipB.y) / 2 + (Math.random() - 0.5) * 15
+          };
+          this.webs.push({ a: tipA, b: tipB, mid: mid });
+        }
+      }
+    }
+    update() {
+      this.life -= this.decay;
+    }
+    draw(ctx) {
+      const a = Math.max(0, this.life);
+      if (a <= 0) return;
+      ctx.save();
+      ctx.translate(this.x, this.y);
+
+      // Draw crack lines
+      for (const branch of this.branches) {
+        // Main crack line
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        let lastMain = { x: 0, y: 0 };
+        for (const seg of branch) {
+          if (seg.isSub) continue;
+          ctx.lineTo(seg.x, seg.y);
+          lastMain = seg;
+        }
+        ctx.strokeStyle = `rgba(200, 220, 255, ${a * 0.5})`;
+        ctx.lineWidth = 1.2 * a;
+        ctx.stroke();
+
+        // Bright inner line
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (const seg of branch) {
+          if (seg.isSub) continue;
+          ctx.lineTo(seg.x, seg.y);
+        }
+        ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.7})`;
+        ctx.lineWidth = 0.4 * a;
+        ctx.stroke();
+
+        // Sub-branches
+        for (const seg of branch) {
+          if (!seg.isSub) continue;
+          const from = branch[seg.fromIdx];
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(seg.x, seg.y);
+          ctx.strokeStyle = `rgba(180, 210, 255, ${a * 0.35})`;
+          ctx.lineWidth = 0.6 * a;
+          ctx.stroke();
+        }
+      }
+
+      // Draw web connections between crack tips
+      for (const web of this.webs) {
+        ctx.beginPath();
+        ctx.moveTo(web.a.x, web.a.y);
+        ctx.quadraticCurveTo(web.mid.x, web.mid.y, web.b.x, web.b.y);
+        ctx.strokeStyle = `rgba(180, 210, 255, ${a * 0.2})`;
+        ctx.lineWidth = 0.4 * a;
+        ctx.stroke();
+      }
+
+      // Central impact point
+      const impR = 4 * a;
+      const impG = ctx.createRadialGradient(0, 0, 0, 0, 0, impR);
+      impG.addColorStop(0, `rgba(255, 255, 255, ${a * 0.6})`);
+      impG.addColorStop(0.4, `rgba(200, 220, 255, ${a * 0.2})`);
+      impG.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(0, 0, impR, 0, Math.PI * 2);
+      ctx.fillStyle = impG;
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  class GlassShard {
+    constructor(x, y, hue) {
+      this.x = x;
+      this.y = y;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.5 + Math.random() * 4;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed - 2;
+      this.life = 1;
+      this.decay = 0.012 + Math.random() * 0.008;
+      this.rotation = Math.random() * Math.PI * 2;
+      this.rotSpeed = (Math.random() - 0.5) * 0.2;
+      this.size = 3 + Math.random() * 6;
+      this.hue = hue + (Math.random() - 0.5) * 40;
+      this.gravity = 0.08;
+      // Random triangular shard shape
+      this.shape = [
+        { x: 0, y: -this.size * 0.6 },
+        { x: -this.size * 0.4 + Math.random() * this.size * 0.2, y: this.size * 0.4 },
+        { x: this.size * 0.3 + Math.random() * this.size * 0.2, y: this.size * 0.3 }
+      ];
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.vy += this.gravity;
+      this.vx *= 0.99;
+      this.rotation += this.rotSpeed;
+      this.life -= this.decay;
+    }
+    draw(ctx) {
+      const a = Math.max(0, this.life);
+      if (a <= 0) return;
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+
+      // Shard body (translucent glass)
+      ctx.beginPath();
+      ctx.moveTo(this.shape[0].x, this.shape[0].y);
+      ctx.lineTo(this.shape[1].x, this.shape[1].y);
+      ctx.lineTo(this.shape[2].x, this.shape[2].y);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${this.hue}, 30%, 80%, ${a * 0.12})`;
+      ctx.fill();
+      ctx.strokeStyle = `hsla(${this.hue}, 50%, 90%, ${a * 0.5})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Specular highlight on one edge
+      ctx.beginPath();
+      ctx.moveTo(this.shape[0].x, this.shape[0].y);
+      ctx.lineTo(this.shape[1].x, this.shape[1].y);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${a * 0.4})`;
+      ctx.lineWidth = 0.3;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+
   // Get eye positions in viewport-space (laser canvas is fixed/full-viewport)
   function getEyePositions() {
     const faceRect = faceSvg.getBoundingClientRect();
@@ -29865,6 +30053,12 @@ function closeMobileNav() {
           c.strokeStyle = `rgba(124,108,240,${this.life*0.15})`; c.lineWidth = 1.5*this.life; c.stroke();
         }
       });
+
+      // Glass shatter at impact
+      cracks.push(new GlassCrack(clickX, clickY));
+      for (let i = 0; i < 15; i++) {
+        shards.push(new GlassShard(clickX, clickY, Math.random() > 0.5 ? 175 : 265));
+      }
 
       // Flash the face container
       faceContainer.style.filter = 'brightness(2) drop-shadow(0 0 60px rgba(0,232,216,0.6))';
@@ -30132,6 +30326,20 @@ function closeMobileNav() {
       trailParticles[i].update();
       trailParticles[i].draw(lctx);
       if (trailParticles[i].life <= 0) trailParticles.splice(i, 1);
+    }
+
+    // Update & draw glass cracks
+    for (let i = cracks.length - 1; i >= 0; i--) {
+      cracks[i].update();
+      cracks[i].draw(lctx);
+      if (cracks[i].life <= 0) cracks.splice(i, 1);
+    }
+
+    // Update & draw glass shards
+    for (let i = shards.length - 1; i >= 0; i--) {
+      shards[i].update();
+      shards[i].draw(lctx);
+      if (shards[i].life <= 0) shards.splice(i, 1);
     }
 
     requestAnimationFrame(animateLasers);
