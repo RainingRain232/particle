@@ -29365,6 +29365,20 @@ function closeMobileNav() {
     _redrawMask();
   }
 
+  function _drawHolePath(c, lx, ly, h) {
+    if (h.verts) {
+      c.beginPath();
+      c.moveTo(lx + h.verts[0].x, ly + h.verts[0].y);
+      for (let vi = 1; vi < h.verts.length; vi++) {
+        c.lineTo(lx + h.verts[vi].x, ly + h.verts[vi].y);
+      }
+      c.closePath();
+    } else {
+      c.beginPath();
+      c.arc(lx, ly, h.r, 0, Math.PI * 2);
+    }
+  }
+
   function _redrawMask() {
     maskCtx.clearRect(0, 0, maskCanvas.width / devicePixelRatio, maskCanvas.height / devicePixelRatio);
     maskCtx.fillStyle = '#fff';
@@ -29372,8 +29386,7 @@ function closeMobileNav() {
     for (const h of window._laserDestroyHoles) {
       const lx = h.x - heroRect.left;
       const ly = h.y - heroRect.top;
-      maskCtx.beginPath();
-      maskCtx.arc(lx, ly, h.r, 0, Math.PI * 2);
+      _drawHolePath(maskCtx, lx, ly, h);
       maskCtx.fill();
     }
   }
@@ -29495,13 +29508,17 @@ function closeMobileNav() {
       for (const h of window._laserDestroyHoles) {
         const lx = h.x - heroRect.left;
         const ly = h.y - heroRect.top;
-        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, h.r);
-        g.addColorStop(0, 'rgba(0,0,0,1)');
-        g.addColorStop(0.6, 'rgba(0,0,0,0.9)');
-        g.addColorStop(0.85, 'rgba(0,0,0,0.4)');
+        // Hard cutout with jagged shape
+        _drawHolePath(ctx, lx, ly, h);
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.fill();
+        // Soft feathered edge around the jagged hole
+        const g = ctx.createRadialGradient(lx, ly, h.r * 0.7, lx, ly, h.r * 1.2);
+        g.addColorStop(0, 'rgba(0,0,0,0.5)');
+        g.addColorStop(0.5, 'rgba(0,0,0,0.2)');
         g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.beginPath();
-        ctx.arc(lx, ly, h.r, 0, Math.PI * 2);
+        ctx.arc(lx, ly, h.r * 1.2, 0, Math.PI * 2);
         ctx.fillStyle = g;
         ctx.fill();
       }
@@ -30175,8 +30192,16 @@ function closeMobileNav() {
 
       // Destroy particle canvas at impact point (reveal a.webp behind)
       if (window._laserDestroyHoles) {
-        const holeRadius = 25 + Math.random() * 15;
-        window._laserDestroyHoles.push({ x: clickX, y: clickY, r: holeRadius });
+        const holeRadius = (25 + Math.random() * 15) * 1.3;
+        // Generate jagged polygon vertices like a shattered glass hole
+        const numVerts = 10 + Math.floor(Math.random() * 8);
+        const verts = [];
+        for (let vi = 0; vi < numVerts; vi++) {
+          const va = (Math.PI * 2 / numVerts) * vi;
+          const jag = holeRadius * (0.55 + Math.random() * 0.55);
+          verts.push({ x: Math.cos(va) * jag, y: Math.sin(va) * jag });
+        }
+        window._laserDestroyHoles.push({ x: clickX, y: clickY, r: holeRadius, verts: verts });
       }
 
       // Shockwave ring at impact
