@@ -281,3 +281,302 @@ describe('Theme inventory', () => {
     expect(domThemeIds.sort()).toEqual([...THEMES].sort());
   });
 });
+
+// ─── FACE SVG STRUCTURE ───
+
+describe('Face SVG elements', () => {
+  it('has the face container', () => {
+    expect(doc.querySelector('.face-container')).not.toBeNull();
+  });
+
+  it('has face SVG with viewBox', () => {
+    const svg = doc.querySelector('.face-svg');
+    expect(svg, 'Missing .face-svg').not.toBeNull();
+  });
+
+  it('has left and right eye irises and pupils', () => {
+    expect(doc.getElementById('leftIris'), 'Missing #leftIris').not.toBeNull();
+    expect(doc.getElementById('leftPupil'), 'Missing #leftPupil').not.toBeNull();
+    expect(doc.getElementById('rightIris'), 'Missing #rightIris').not.toBeNull();
+    expect(doc.getElementById('rightPupil'), 'Missing #rightPupil').not.toBeNull();
+  });
+
+  it('has eye beam lines', () => {
+    expect(doc.getElementById('leftBeam'), 'Missing #leftBeam').not.toBeNull();
+    expect(doc.getElementById('rightBeam'), 'Missing #rightBeam').not.toBeNull();
+  });
+
+  it('has mouth elements for animation', () => {
+    expect(doc.getElementById('faceMouth'), 'Missing #faceMouth').not.toBeNull();
+    expect(doc.getElementById('faceMouthLower'), 'Missing #faceMouthLower').not.toBeNull();
+    expect(doc.getElementById('mouthInterior'), 'Missing #mouthInterior').not.toBeNull();
+  });
+
+  it('has enhanced mouth elements (teeth, tongue, glow)', () => {
+    expect(doc.getElementById('mouthGlow'), 'Missing #mouthGlow').not.toBeNull();
+    expect(doc.getElementById('mouthTeethUpper'), 'Missing #mouthTeethUpper').not.toBeNull();
+    expect(doc.getElementById('mouthTongue'), 'Missing #mouthTongue').not.toBeNull();
+    expect(doc.getElementById('lowerLipCurve'), 'Missing #lowerLipCurve').not.toBeNull();
+  });
+
+  it('has mouth glow gradient defined in SVG defs', () => {
+    expect(doc.getElementById('mouthGlowGrad'), 'Missing #mouthGlowGrad gradient').not.toBeNull();
+  });
+});
+
+// ─── SPEECH BUBBLE ───
+
+describe('Speech bubble', () => {
+  it('has the speech bubble element', () => {
+    expect(doc.getElementById('faceSpeech')).not.toBeNull();
+  });
+
+  it('has text and author spans', () => {
+    expect(doc.getElementById('faceSpeechText')).not.toBeNull();
+    expect(doc.getElementById('faceSpeechAuthor')).not.toBeNull();
+  });
+
+  it('has CSS for speech bubble visibility toggle', () => {
+    expect(styleContent).toContain('.face-speech');
+    expect(styleContent).toContain('.face-speech.visible');
+  });
+
+  it('has CSS for the speech bubble tail (::after)', () => {
+    expect(styleContent).toContain('.face-speech::after');
+  });
+});
+
+// ─── TIMED MESSAGES ───
+
+describe('Timed welcome messages', () => {
+  it('has the 5-second CV message', () => {
+    expect(scriptContent).toContain("showCustomSpeech('Scroll naar onderen voor mijn CV'");
+  });
+
+  it('has the 25-second theme hint message', () => {
+    expect(scriptContent).toContain("showCustomSpeech('Klik linksbovenin voor een theme'");
+  });
+
+  it('has the 70-second canvas surprise message', () => {
+    expect(scriptContent).toContain("showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing'");
+  });
+
+  it('messages are scheduled at correct intervals', () => {
+    expect(scriptContent).toMatch(/setTimeout\(\(\)\s*=>\s*\{\s*showCustomSpeech\('Scroll naar onderen[^}]+\},\s*5000\)/);
+    expect(scriptContent).toMatch(/setTimeout\(\(\)\s*=>\s*\{\s*showCustomSpeech\('Klik linksbovenin[^}]+\},\s*25000\)/);
+    expect(scriptContent).toMatch(/setTimeout\(\(\)\s*=>\s*\{\s*showCustomSpeech\('Scroll naar het canvas[^}]+\},\s*70000\)/);
+  });
+});
+
+// ─── SPEECH SYSTEM FUNCTIONS ───
+
+describe('Speech system functions', () => {
+  it('defines triggerTalk function', () => {
+    expect(scriptContent).toMatch(/function\s+triggerTalk\s*\(/);
+  });
+
+  it('defines showCustomSpeech function', () => {
+    expect(scriptContent).toMatch(/function\s+showCustomSpeech\s*\(/);
+  });
+
+  it('has cyber security quotes array', () => {
+    expect(scriptContent).toContain('cyberQuotes');
+    // Verify at least 10 quotes exist
+    const quoteMatches = scriptContent.match(/\{\s*text:\s*"/g);
+    expect(quoteMatches.length).toBeGreaterThanOrEqual(10);
+  });
+});
+
+// ─── NAVIGATION ───
+
+describe('Navigation', () => {
+  it('has main nav element', () => {
+    expect(doc.getElementById('mainNav')).not.toBeNull();
+  });
+
+  it('has mobile hamburger menu', () => {
+    expect(doc.getElementById('navHamburger')).not.toBeNull();
+    expect(doc.getElementById('navMobile')).not.toBeNull();
+  });
+
+  it('hamburger has onclick for toggleMobileNav', () => {
+    const hamburger = doc.getElementById('navHamburger');
+    expect(hamburger.getAttribute('onclick')).toBe('toggleMobileNav()');
+  });
+
+  it('defines toggleMobileNav and closeMobileNav in JS', () => {
+    expect(scriptContent).toMatch(/function\s+toggleMobileNav\s*\(/);
+    expect(scriptContent).toMatch(/function\s+closeMobileNav\s*\(/);
+  });
+});
+
+// ─── CONTENT SECTIONS ───
+
+describe('About section', () => {
+  it('has stat cards with numeric targets', () => {
+    const statCards = doc.querySelectorAll('.stat-card');
+    expect(statCards.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('each stat card has a data-target number', () => {
+    const statNums = doc.querySelectorAll('.stat-number[data-target]');
+    expect(statNums.length).toBeGreaterThanOrEqual(3);
+    statNums.forEach((el) => {
+      const target = parseInt(el.getAttribute('data-target'));
+      expect(target).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('Skills section', () => {
+  it('has skill cards', () => {
+    const cards = doc.querySelectorAll('.skill-card');
+    expect(cards.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('skill bars have data-width percentages', () => {
+    const bars = doc.querySelectorAll('.skill-bar-fill[data-width]');
+    expect(bars.length).toBeGreaterThanOrEqual(5);
+    bars.forEach((bar) => {
+      const width = parseInt(bar.getAttribute('data-width'));
+      expect(width).toBeGreaterThanOrEqual(0);
+      expect(width).toBeLessThanOrEqual(100);
+    });
+  });
+});
+
+describe('Experience section', () => {
+  it('has timeline items', () => {
+    const items = doc.querySelectorAll('.timeline-item');
+    expect(items.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('each timeline item has a date', () => {
+    const dates = doc.querySelectorAll('.timeline-date');
+    expect(dates.length).toBeGreaterThanOrEqual(2);
+    dates.forEach((d) => {
+      expect(d.textContent.trim().length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('Projects section', () => {
+  it('has project cards', () => {
+    const cards = doc.querySelectorAll('.project-card');
+    expect(cards.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('each project card has a data-project attribute', () => {
+    const cards = doc.querySelectorAll('.project-card[data-project]');
+    expect(cards.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('Contact section', () => {
+  it('has contact links', () => {
+    const links = doc.querySelectorAll('.contact-link');
+    expect(links.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('has at least one mailto link', () => {
+    const mailLinks = doc.querySelectorAll('.contact-link[href^="mailto:"]');
+    expect(mailLinks.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ─── META & HEAD ───
+
+describe('HTML head', () => {
+  it('has charset meta tag', () => {
+    const meta = doc.querySelector('meta[charset]');
+    expect(meta).not.toBeNull();
+    expect(meta.getAttribute('charset').toLowerCase()).toBe('utf-8');
+  });
+
+  it('has viewport meta tag', () => {
+    const meta = doc.querySelector('meta[name="viewport"]');
+    expect(meta).not.toBeNull();
+    expect(meta.getAttribute('content')).toContain('width=device-width');
+  });
+
+  it('has lang attribute on html element', () => {
+    expect(doc.documentElement.getAttribute('lang')).toBeTruthy();
+  });
+});
+
+// ─── RESPONSIVE CSS ───
+
+describe('Responsive design', () => {
+  it('has mobile breakpoint at 768px', () => {
+    expect(styleContent).toContain('@media (max-width: 768px)');
+  });
+
+  it('has small phone breakpoint at 420px', () => {
+    expect(styleContent).toContain('@media (max-width: 420px)');
+  });
+
+  it('has responsive canvas sizing for object canvases', () => {
+    // Object canvases should get resized on mobile
+    expect(styleContent).toMatch(/@media\s*\(max-width:\s*768px\)\s*\{[^}]*ObjCanvas/);
+  });
+});
+
+// ─── CSS FUNDAMENTALS ───
+
+describe('CSS fundamentals', () => {
+  it('resets box-sizing to border-box', () => {
+    expect(styleContent).toContain('box-sizing: border-box');
+  });
+
+  it('uses smooth scroll behavior', () => {
+    expect(styleContent).toContain('scroll-behavior: smooth');
+  });
+
+  it('hides overflow-x on body', () => {
+    expect(styleContent).toContain('overflow-x: hidden');
+  });
+
+  it('imports Inter and Space Grotesk fonts', () => {
+    expect(styleContent).toContain('Inter');
+    expect(styleContent).toContain('Space Grotesk');
+  });
+});
+
+// ─── LASER SYSTEM ───
+
+describe('Laser system', () => {
+  it('defines LaserBeam class', () => {
+    expect(scriptContent).toMatch(/class\s+LaserBeam/);
+  });
+
+  it('defines Spark class', () => {
+    expect(scriptContent).toMatch(/class\s+Spark/);
+  });
+
+  it('defines fireLaser function', () => {
+    expect(scriptContent).toMatch(/function\s+fireLaser\s*\(/);
+  });
+
+  it('defines animateLasers function', () => {
+    expect(scriptContent).toMatch(/function\s+animateLasers\s*\(/);
+  });
+
+  it('has a laser overlay canvas', () => {
+    expect(scriptContent).toContain('laserCanvas');
+  });
+});
+
+// ─── EYE TRACKING ───
+
+describe('Eye tracking', () => {
+  it('defines updateEyes function', () => {
+    expect(scriptContent).toMatch(/function\s+updateEyes\s*\(/);
+  });
+
+  it('references all eye SVG elements in JS', () => {
+    expect(scriptContent).toContain("getElementById('leftIris')");
+    expect(scriptContent).toContain("getElementById('rightIris')");
+    expect(scriptContent).toContain("getElementById('leftPupil')");
+    expect(scriptContent).toContain("getElementById('rightPupil')");
+  });
+});

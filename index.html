@@ -3862,6 +3862,11 @@
         <stop offset="30%" stop-color="rgba(0,232,216,0.08)"/>
         <stop offset="100%" stop-color="rgba(124,108,240,0)"/>
       </radialGradient>
+      <radialGradient id="mouthGlowGrad" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="rgba(124,108,240,0.12)"/>
+        <stop offset="50%" stop-color="rgba(0,232,216,0.06)"/>
+        <stop offset="100%" stop-color="rgba(20,5,30,0)"/>
+      </radialGradient>
     </defs>
 
     <!-- === AMBIENT FACE GLOW === -->
@@ -4141,10 +4146,16 @@
     <path style="fill:none; stroke:rgba(255,255,255,0.03); stroke-width:0.4; stroke-linecap:round" d="M82,116 Q90,112 100,114 Q110,112 118,116"/>
     <!-- Lower lip (animated) -->
     <path class="face-mouth" id="faceMouthLower" d="M84,118 L92,120 L100,121 L108,120 L116,118" style="stroke: rgba(255,255,255,0.05); stroke-width:0.7"/>
-    <!-- Lower lip fullness curve -->
-    <path style="fill:none; stroke:rgba(255,255,255,0.025); stroke-width:0.5; stroke-linecap:round" d="M86,120 Q93,124 100,125 Q107,124 114,120"/>
     <!-- Mouth interior (visible when open) -->
     <ellipse id="mouthInterior" cx="100" cy="120" rx="12" ry="0" fill="rgba(20,5,30,0.8)" stroke="rgba(124,108,240,0.06)" stroke-width="0.3"/>
+    <!-- Mouth inner glow (visible when talking) -->
+    <ellipse id="mouthGlow" cx="100" cy="120" rx="10" ry="0" fill="url(#mouthGlowGrad)" opacity="0"/>
+    <!-- Upper teeth row -->
+    <path id="mouthTeethUpper" d="M90,120 L93,120 L93,120 L96,120 L96,120 L99,120 L99,120 L101,120 L101,120 L104,120 L104,120 L107,120 L107,120 L110,120" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="0.3" opacity="0"/>
+    <!-- Tongue -->
+    <ellipse id="mouthTongue" cx="100" cy="124" rx="6" ry="0" fill="rgba(180,80,120,0.15)" stroke="rgba(200,100,140,0.08)" stroke-width="0.3" opacity="0"/>
+    <!-- Lower lip fullness curve (animated) -->
+    <path id="lowerLipCurve" style="fill:none; stroke:rgba(255,255,255,0.025); stroke-width:0.5; stroke-linecap:round" d="M86,120 Q93,124 100,125 Q107,124 114,120"/>
     <!-- Mouth corner details -->
     <line class="geo-line" x1="78" y1="116" x2="74" y2="118"/>
     <line class="geo-line" x1="122" y1="116" x2="126" y2="118"/>
@@ -29911,6 +29922,64 @@ function closeMobileNav() {
       setTimeout(() => { speechBubble.classList.remove('visible'); }, 500);
     }, talkDuration);
   }
+
+  // Show a custom message in the speech bubble (not a random quote)
+  function showCustomSpeech(text, duration) {
+    clearInterval(mouthAnimInterval);
+    clearTimeout(talkTimeout);
+
+    speechText.textContent = text;
+    speechAuthor.textContent = '';
+    speechBubble.classList.add('visible');
+
+    let mouthFrame = 0;
+    mouthAnimInterval = setInterval(() => {
+      mouthFrame++;
+      const openAmount = Math.sin(mouthFrame * 0.8) * 0.5 + 0.5;
+      const ry = openAmount * 6;
+      const yOff = openAmount * 4;
+      mouth.setAttribute('d', `M80,118 L88,${115 + yOff} L95,${117 + yOff * 0.5} L100,${119 + yOff} L105,${117 + yOff * 0.5} L112,${115 + yOff} L120,118`);
+      mouthLower.setAttribute('d', `M84,${120 + yOff * 1.2} L92,${122 + yOff * 1.5} L100,${123 + yOff * 2} L108,${122 + yOff * 1.5} L116,${120 + yOff * 1.2}`);
+      mouthInterior.setAttribute('ry', ry);
+      mouthInterior.setAttribute('cy', 122 + yOff * 0.8);
+    }, 80);
+
+    const dur = duration || Math.max(3000, text.length * 50);
+    talkTimeout = setTimeout(() => {
+      clearInterval(mouthAnimInterval);
+      let closeFrame = 0;
+      const closeInterval = setInterval(() => {
+        closeFrame++;
+        const t = 1 - closeFrame / 8;
+        if (t <= 0) {
+          clearInterval(closeInterval);
+          mouth.setAttribute('d', 'M80,118 L88,115 L95,117 L100,119 L105,117 L112,115 L120,118');
+          mouthLower.setAttribute('d', 'M84,120 L92,122 L100,123 L108,122 L116,120');
+          mouthInterior.setAttribute('ry', '0');
+          mouthInterior.setAttribute('cy', '122');
+          return;
+        }
+        const yOff = t * 4;
+        const ry = t * 6;
+        mouth.setAttribute('d', `M80,118 L88,${115 + yOff} L95,${117 + yOff * 0.5} L100,${119 + yOff} L105,${117 + yOff * 0.5} L112,${115 + yOff} L120,118`);
+        mouthLower.setAttribute('d', `M84,${120 + yOff * 1.2} L92,${122 + yOff * 1.5} L100,${123 + yOff * 2} L108,${122 + yOff * 1.5} L116,${120 + yOff * 1.2}`);
+        mouthInterior.setAttribute('ry', ry);
+        mouthInterior.setAttribute('cy', 122 + yOff * 0.8);
+      }, 50);
+      setTimeout(() => { speechBubble.classList.remove('visible'); }, 500);
+    }, dur);
+  }
+
+  // Timed welcome messages
+  setTimeout(() => {
+    showCustomSpeech('Scroll naar onderen voor mijn CV', 6000);
+  }, 5000);
+  setTimeout(() => {
+    showCustomSpeech('Klik linksbovenin voor een theme', 6000);
+  }, 25000);
+  setTimeout(() => {
+    showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing', 8000);
+  }, 70000);
 
   // Laser animation loop
   function animateLasers() {
