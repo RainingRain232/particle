@@ -30154,6 +30154,25 @@ function closeMobileNav() {
     };
   }
 
+  // Theme cycle on canvas clicks
+  const _canvasThemeCycle = [
+    togglePyramidTheme, toggleSynthTheme, toggleInfernoTheme,
+    togglePixelTheme, toggleGlitchTheme, toggleGlacierTheme,
+    toggleMatrixTheme, togglePlasmaTheme
+  ];
+  const _allThemeToggles = [
+    togglePyramidTheme, toggleSynthTheme, toggleInfernoTheme,
+    togglePixelTheme, toggleGlitchTheme, toggleGlacierTheme,
+    toggleMatrixTheme, togglePlasmaTheme, toggleVoidTheme,
+    toggleAbyssTheme, toggleStormTheme, toggleFrostTheme,
+    toggleSakuraTheme, toggleNeonTheme, toggleAuroraTheme,
+    toggleJungleTheme, toggleCosmicTheme, toggleSteamTheme,
+    toggleToxicTheme, toggleCoralTheme, toggleHaboobTheme,
+    toggleEclipseTheme, toggleCircuitTheme, toggleHoloTheme,
+    toggleWildfireTheme
+  ];
+  let _canvasClickCount = 0;
+
   // Fire beams on click anywhere
   function fireLaser(e) {
     try {
@@ -30244,6 +30263,15 @@ function closeMobileNav() {
 
       // Mouth talk animation + quote
       triggerTalk();
+
+      // Cycle theme on each click
+      if (_canvasClickCount < _canvasThemeCycle.length) {
+        _canvasThemeCycle[_canvasClickCount]();
+      } else {
+        // Random theme after the fixed sequence
+        _allThemeToggles[Math.floor(Math.random() * _allThemeToggles.length)]();
+      }
+      _canvasClickCount++;
     } catch(err) {
       console.error('Laser error:', err);
     }
