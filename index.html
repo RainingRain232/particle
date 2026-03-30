@@ -3429,6 +3429,16 @@
 
   /* ── Animations ── */
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes screenShake {
+    0% { transform: translate(0, 0); }
+    15% { transform: translate(-8px, 6px); }
+    30% { transform: translate(7px, -5px); }
+    45% { transform: translate(-6px, -4px); }
+    60% { transform: translate(5px, 3px); }
+    75% { transform: translate(-3px, 5px); }
+    90% { transform: translate(2px, -2px); }
+    100% { transform: translate(0, 0); }
+  }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes shimmer { 0%, 100% { background-position: 100% 50%; } 50% { background-position: -50% 50%; } }
   @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
@@ -30204,8 +30214,8 @@ function closeMobileNav() {
       idx++;
       _themeCycleCount++;
 
-      // After 10 theme changes, make matrix rain persistent
-      if (_themeCycleCount >= 10 && !window._matrixPersistent) {
+      // After 7 theme changes, make matrix rain persistent
+      if (_themeCycleCount >= 7 && !window._matrixPersistent) {
         window._matrixPersistent = true;
         if (!matrixAnim) {
           startMatrixRain();
@@ -30224,6 +30234,13 @@ function closeMobileNav() {
           }
         }, 50);
       }
+
+      // Screen shake after 15 theme changes
+      if (_themeCycleCount >= 15) {
+        document.body.style.animation = 'none';
+        document.body.offsetHeight; // force reflow
+        document.body.style.animation = 'screenShake 0.4s ease-out';
+      }
     }, 3000);
   }
 
@@ -30241,10 +30258,15 @@ function closeMobileNav() {
     const clone = faceContainer.cloneNode(true);
     clone.id = id;
     clone.style.cssText = cssText;
-    const sp = clone.querySelector('.face-speech');
-    if (sp) sp.remove();
     const hc = clone.querySelector('.face-halo-canvas');
     if (hc) hc.remove();
+    // Give speech elements unique IDs
+    const sp = clone.querySelector('.face-speech');
+    if (sp) { sp.id = id + '_speech'; sp.classList.remove('visible', 'highlight'); }
+    const st = clone.querySelector('#faceSpeechText');
+    if (st) { st.id = id + '_speechText'; st.textContent = ''; }
+    const sa = clone.querySelector('#faceSpeechAuthor');
+    if (sa) { sa.id = id + '_speechAuthor'; sa.textContent = ''; }
     document.body.appendChild(clone);
     return clone;
   }
@@ -30306,6 +30328,45 @@ function closeMobileNav() {
     const tx = Math.random() * window.innerWidth;
     const ty = Math.random() * window.innerHeight * 0.7;
     fireBeamsFromTo(eyes, tx, ty, h1, h2);
+  }
+
+  // Trigger talk animation + quote on any face (original or cloned)
+  function triggerTalkOnFace(faceEl) {
+    const svg = faceEl.querySelector('.face-svg');
+    const mth = svg ? svg.querySelector('#faceMouth') : null;
+    const mthLower = svg ? svg.querySelector('#faceMouthLower') : null;
+    const mthInterior = svg ? svg.querySelector('#mouthInterior') : null;
+    const bubble = faceEl.querySelector('.face-speech');
+    const txtEl = bubble ? bubble.querySelector('span:first-child') : null;
+    const authEl = bubble ? bubble.querySelector('.quote-author') : null;
+    if (!bubble || !txtEl || !mth) return;
+
+    // Pick random quote
+    const q = cyberQuotes[Math.floor(Math.random() * cyberQuotes.length)];
+    txtEl.textContent = '"' + q.text + '"';
+    if (authEl) authEl.textContent = q.author;
+    bubble.classList.add('visible');
+
+    // Mouth animation
+    let frame = 0;
+    const anim = setInterval(() => {
+      frame++;
+      const open = Math.sin(frame * 0.8) * 0.5 + 0.5;
+      const ry = open * 6;
+      const yOff = open * 4;
+      mth.setAttribute('d', 'M80,118 L88,' + (115 + yOff) + ' L95,' + (117 + yOff * 0.5) + ' L100,' + (119 + yOff) + ' L105,' + (117 + yOff * 0.5) + ' L112,' + (115 + yOff) + ' L120,118');
+      if (mthLower) mthLower.setAttribute('d', 'M84,' + (120 + yOff * 1.2) + ' L92,' + (122 + yOff * 1.5) + ' L100,' + (123 + yOff * 2) + ' L108,' + (122 + yOff * 1.5) + ' L116,' + (120 + yOff * 1.2));
+      if (mthInterior) { mthInterior.setAttribute('ry', ry); mthInterior.setAttribute('cy', 122 + yOff * 0.8); }
+    }, 80);
+
+    const dur = Math.max(2000, q.text.length * 40);
+    setTimeout(() => {
+      clearInterval(anim);
+      mth.setAttribute('d', 'M80,118 L88,115 L95,117 L100,119 L105,117 L112,115 L120,118');
+      if (mthLower) mthLower.setAttribute('d', 'M84,120 L92,122 L100,123 L108,122 L116,120');
+      if (mthInterior) { mthInterior.setAttribute('ry', '0'); mthInterior.setAttribute('cy', '122'); }
+      setTimeout(() => { bubble.classList.remove('visible'); }, 500);
+    }, dur);
   }
 
   function getAllFaces() {
@@ -30381,6 +30442,7 @@ function closeMobileNav() {
 
       shootAtCanvas(eyes, f.hue1, f.hue2);
       flashFace(f.el, 'rgba(255,80,0,0.6)');
+      triggerTalkOnFace(f.el);
       phaseShots++;
 
       if (phaseShots >= 5) {
@@ -30427,6 +30489,9 @@ function closeMobileNav() {
       if (!shootingActive) return;
       const all = getAllFaces();
 
+      // Pick one random face to talk this round
+      const talkerIdx = Math.floor(Math.random() * all.length);
+
       // Each active face shoots
       for (let i = 0; i < all.length; i++) {
         const shooter = all[i];
@@ -30434,7 +30499,6 @@ function closeMobileNav() {
         if (!eyes) continue;
 
         if (Math.random() < 0.5 && all.length > 1) {
-          // Shoot at another face
           const others = all.filter((_, idx) => idx !== i);
           const target = others[Math.floor(Math.random() * others.length)];
           shootFaceAtFace(eyes, shooter.hue1, shooter.hue2, target.el);
@@ -30442,6 +30506,11 @@ function closeMobileNav() {
           shootAtCanvas(eyes, shooter.hue1, shooter.hue2);
         }
         flashFace(shooter.el, 'rgba(255,255,255,0.2)');
+
+        // Trigger talk on the randomly chosen face
+        if (i === talkerIdx) {
+          triggerTalkOnFace(shooter.el);
+        }
       }
 
       phaseShots++;
