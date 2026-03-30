@@ -30185,14 +30185,15 @@ function closeMobileNav() {
   let _canvasClickCount = 0;
   let _randomIndex = 0;
 
-  // ── MULTI-FACE SYSTEM ──
-  // Each extra face: { el, svg, y, dir, hue1, hue2 }
+  // ── MULTI-FACE BATTLE SYSTEM ──
   const extraFaces = [];
-  let rivalAutoShotCount = 0;
-  let duelMode = false;
-  let arenaMode = false; // 4-face mode
+  let phase = 'idle'; // idle → rival → duel → arena4 → arena6 → pyramid
+  let phaseShots = 0;
   let originalFaceY = null;
   let originalDirection = -1;
+  let movementActive = false;
+  let shootingActive = false;
+  let pyramidBoss = null;
 
   function cloneFace(id, cssText) {
     const clone = faceContainer.cloneNode(true);
@@ -30251,181 +30252,250 @@ function closeMobileNav() {
     setTimeout(() => { el.style.filter = ''; }, 150);
   }
 
-  function shootFaceAtFace(shooterEyes, shooterHue1, shooterHue2, targetEl) {
+  function shootFaceAtFace(shooterEyes, h1, h2, targetEl) {
     const tc = getFaceCenter(targetEl);
-    lasers.push(new LaserBeam(shooterEyes.left.x, shooterEyes.left.y, tc.x, tc.y, shooterHue1));
-    lasers.push(new LaserBeam(shooterEyes.right.x, shooterEyes.right.y, tc.x, tc.y, shooterHue2));
-    for (let i = 0; i < 25; i++) sparks.push(new Spark(tc.x, tc.y, i % 2 === 0 ? shooterHue1 : shooterHue2));
+    lasers.push(new LaserBeam(shooterEyes.left.x, shooterEyes.left.y, tc.x, tc.y, h1));
+    lasers.push(new LaserBeam(shooterEyes.right.x, shooterEyes.right.y, tc.x, tc.y, h2));
+    for (let i = 0; i < 25; i++) sparks.push(new Spark(tc.x, tc.y, i % 2 === 0 ? h1 : h2));
     flashFace(targetEl, 'rgba(255,255,255,0.6)');
   }
 
-  function shootAtCanvas(eyes, hue1, hue2) {
+  function shootAtCanvas(eyes, h1, h2) {
     const tx = Math.random() * window.innerWidth;
     const ty = Math.random() * window.innerHeight * 0.7;
-    fireBeamsFromTo(eyes, tx, ty, hue1, hue2);
+    fireBeamsFromTo(eyes, tx, ty, h1, h2);
   }
 
-  // Spawn the first rival (top-right, click 10)
-  function spawnRivalFace() {
-    if (extraFaces.length >= 1) return;
-    const el = cloneFace('rivalFace1', 'position:fixed;top:80px;right:2rem;bottom:auto;left:auto;z-index:50;transform:scaleX(-1);animation:none;');
-    extraFaces.push({ el: el, svg: el.querySelector('.face-svg'), y: 80, dir: 1, hue1: 0, hue2: 30, side: 'right' });
-    rivalAutoShoot();
+  function getAllFaces() {
+    const all = [{ el: faceContainer, svg: faceSvg, hue1: 175, hue2: 265 }];
+    for (const f of extraFaces) all.push(f);
+    return all;
   }
 
-  // Spawn two left-side faces (click 15)
-  function spawnLeftFaces() {
-    if (extraFaces.length >= 3) return;
-    const topLeft = cloneFace('rivalFace2', 'position:fixed;top:60px;left:2rem;bottom:auto;right:auto;z-index:50;animation:none;');
-    extraFaces.push({ el: topLeft, svg: topLeft.querySelector('.face-svg'), y: 60, dir: 1, hue1: 120, hue2: 160, side: 'left' });
-    const bottomLeft = cloneFace('rivalFace3', 'position:fixed;top:' + (window.innerHeight - 280) + 'px;left:2rem;bottom:auto;right:auto;z-index:50;animation:none;');
-    extraFaces.push({ el: bottomLeft, svg: bottomLeft.querySelector('.face-svg'), y: window.innerHeight - 280, dir: -1, hue1: 45, hue2: 60, side: 'left' });
-    if (!arenaMode) {
-      arenaMode = true;
-      startArenaMode();
-    }
-  }
-
-  function rivalAutoShoot() {
-    if (extraFaces.length < 1) return;
-    const delay = 800 + Math.random() * 1200;
-    setTimeout(() => {
-      if (extraFaces.length < 1) return;
-      const f = extraFaces[0];
-      const eyes = getFaceEyes(f.svg);
-      if (!eyes) return;
-      rivalAutoShotCount++;
-
-      if (!duelMode && !arenaMode) {
-        const tx = Math.random() * window.innerWidth;
-        const ty = Math.random() * (window.innerHeight * 0.6);
-        fireBeamsFromTo(eyes, tx, ty, f.hue1, f.hue2);
-        flashFace(f.el, 'rgba(255,80,0,0.6)');
-
-        if (rivalAutoShotCount >= 5) {
-          duelMode = true;
-          startDuelMode();
-        } else {
-          rivalAutoShoot();
-        }
-      }
-    }, delay);
-  }
-
-  function startDuelMode() {
-    const origRect = faceContainer.getBoundingClientRect();
-    originalFaceY = origRect.top;
-    faceContainer.style.position = 'fixed';
-    faceContainer.style.bottom = 'auto';
-    faceContainer.style.top = originalFaceY + 'px';
-
-    function duelLoop() {
-      if (arenaMode) return; // arena takes over
-      if (!duelMode) return;
-
-      const f = extraFaces[0];
-      if (f) {
-        f.y += f.dir * 3;
-        if (f.y < 20) f.dir = 1;
-        if (f.y > window.innerHeight - 250) f.dir = -1;
-        f.el.style.top = f.y + 'px';
-      }
-
-      originalFaceY += originalDirection * 2.5;
-      if (originalFaceY < 20) originalDirection = 1;
-      if (originalFaceY > window.innerHeight - 250) originalDirection = -1;
-      faceContainer.style.top = originalFaceY + 'px';
-
-      requestAnimationFrame(duelLoop);
-    }
-    duelLoop();
-
-    function duelShoot() {
-      if (arenaMode) return; // arena takes over
-      if (!duelMode) return;
-      const origEyes = getEyePositions();
-      const f = extraFaces[0];
-      const rivEyes = f ? getFaceEyes(f.svg) : null;
-      if (!origEyes || !rivEyes) { setTimeout(duelShoot, 600); return; }
-
-      if (Math.random() < 0.5) {
-        shootFaceAtFace(origEyes, 175, 265, f.el);
-        shootFaceAtFace(rivEyes, f.hue1, f.hue2, faceContainer);
-      } else {
-        shootAtCanvas(origEyes, 175, 265);
-        shootAtCanvas(rivEyes, f.hue1, f.hue2);
-      }
-
-      setTimeout(duelShoot, 400 + Math.random() * 600);
-    }
-    duelShoot();
-  }
-
-  // ── 4-FACE ARENA MODE ──
-  function startArenaMode() {
-    // Ensure original face is in fixed position mode
+  function ensureOriginalFixed() {
     if (originalFaceY === null) {
-      const origRect = faceContainer.getBoundingClientRect();
-      originalFaceY = origRect.top;
+      const r = faceContainer.getBoundingClientRect();
+      originalFaceY = r.top;
       faceContainer.style.position = 'fixed';
       faceContainer.style.bottom = 'auto';
       faceContainer.style.top = originalFaceY + 'px';
     }
+  }
 
-    // All faces (original + 3 extras) with their state
-    const allFaces = [
-      { el: faceContainer, svg: faceSvg, getY: () => originalFaceY, setY: v => { originalFaceY = v; }, dir: originalDirection, setDir: d => { originalDirection = d; }, hue1: 175, hue2: 265, side: 'right' },
-      ...extraFaces
-    ];
+  function startMovement() {
+    if (movementActive) return;
+    movementActive = true;
+    ensureOriginalFixed();
 
-    function arenaMove() {
-      if (!arenaMode) return;
+    function moveLoop() {
+      if (!movementActive) return;
 
-      // Move original
       originalFaceY += originalDirection * 2.5;
       if (originalFaceY < 20) originalDirection = 1;
       if (originalFaceY > window.innerHeight - 250) originalDirection = -1;
       faceContainer.style.top = originalFaceY + 'px';
 
-      // Move extra faces
       for (const f of extraFaces) {
-        const speed = 1.5 + Math.random() * 0.5;
-        f.y += f.dir * speed;
+        f.y += f.dir * (1.5 + Math.random() * 0.5);
         if (f.y < 20) f.dir = 1;
         if (f.y > window.innerHeight - 250) f.dir = -1;
         f.el.style.top = f.y + 'px';
       }
 
-      requestAnimationFrame(arenaMove);
+      requestAnimationFrame(moveLoop);
     }
-    arenaMove();
+    moveLoop();
+  }
 
-    function arenaShoot() {
-      if (!arenaMode) return;
+  function advancePhase() {
+    phaseShots = 0;
+    if (phase === 'rival') {
+      phase = 'duel';
+      ensureOriginalFixed();
+      startMovement();
+      startShooting();
+    } else if (phase === 'duel') {
+      phase = 'arena4';
+      spawnLeftFaces();
+    } else if (phase === 'arena4') {
+      phase = 'arena6';
+      spawnTopBottomFaces();
+    } else if (phase === 'arena6') {
+      phase = 'pyramid';
+      spawnPyramidBoss();
+    }
+  }
 
-      // Each face takes a turn shooting
-      for (let i = 0; i < allFaces.length; i++) {
-        const shooter = allFaces[i];
-        const svg = shooter.svg;
-        const eyes = getFaceEyes(svg);
+  // Phase: rival auto-shoots canvas
+  function rivalAutoShoot() {
+    if (phase !== 'rival') return;
+    const delay = 800 + Math.random() * 1200;
+    setTimeout(() => {
+      if (phase !== 'rival') return;
+      const f = extraFaces[0];
+      if (!f) return;
+      const eyes = getFaceEyes(f.svg);
+      if (!eyes) return;
+
+      shootAtCanvas(eyes, f.hue1, f.hue2);
+      flashFace(f.el, 'rgba(255,80,0,0.6)');
+      phaseShots++;
+
+      if (phaseShots >= 5) {
+        advancePhase();
+      } else {
+        rivalAutoShoot();
+      }
+    }, delay);
+  }
+
+  // Spawn first rival (click 5)
+  function spawnRivalFace() {
+    if (extraFaces.length >= 1) return;
+    const el = cloneFace('rivalFace1', 'position:fixed;top:80px;right:2rem;bottom:auto;left:auto;z-index:50;transform:scaleX(-1);animation:none;');
+    extraFaces.push({ el: el, svg: el.querySelector('.face-svg'), y: 80, dir: 1, hue1: 0, hue2: 30 });
+    phase = 'rival';
+    phaseShots = 0;
+    rivalAutoShoot();
+  }
+
+  // Spawn left faces (auto after duel 5 shots)
+  function spawnLeftFaces() {
+    const topLeft = cloneFace('rivalFace2', 'position:fixed;top:60px;left:2rem;bottom:auto;right:auto;z-index:50;animation:none;');
+    extraFaces.push({ el: topLeft, svg: topLeft.querySelector('.face-svg'), y: 60, dir: 1, hue1: 120, hue2: 160 });
+    const bottomLeft = cloneFace('rivalFace3', 'position:fixed;top:' + (window.innerHeight - 280) + 'px;left:2rem;bottom:auto;right:auto;z-index:50;animation:none;');
+    extraFaces.push({ el: bottomLeft, svg: bottomLeft.querySelector('.face-svg'), y: window.innerHeight - 280, dir: -1, hue1: 45, hue2: 60 });
+  }
+
+  // Spawn top/bottom center faces (auto after arena4 5 shots)
+  function spawnTopBottomFaces() {
+    const cx = window.innerWidth / 2 - 100;
+    const topCenter = cloneFace('rivalFace4', 'position:fixed;top:20px;left:' + cx + 'px;right:auto;bottom:auto;z-index:50;animation:none;');
+    extraFaces.push({ el: topCenter, svg: topCenter.querySelector('.face-svg'), y: 20, dir: 1, hue1: 280, hue2: 310 });
+    const bottomCenter = cloneFace('rivalFace5', 'position:fixed;top:' + (window.innerHeight - 250) + 'px;left:' + cx + 'px;right:auto;bottom:auto;z-index:50;animation:none;');
+    extraFaces.push({ el: bottomCenter, svg: bottomCenter.querySelector('.face-svg'), y: window.innerHeight - 250, dir: -1, hue1: 200, hue2: 230 });
+  }
+
+  // Unified shooting loop for all phases after rival
+  function startShooting() {
+    if (shootingActive) return;
+    shootingActive = true;
+
+    function shootLoop() {
+      if (!shootingActive) return;
+      const all = getAllFaces();
+
+      // Each active face shoots
+      for (let i = 0; i < all.length; i++) {
+        const shooter = all[i];
+        const eyes = getFaceEyes(shooter.svg);
         if (!eyes) continue;
 
-        if (Math.random() < 0.5) {
-          // Shoot at a random other face
-          const others = allFaces.filter((_, idx) => idx !== i);
+        if (Math.random() < 0.5 && all.length > 1) {
+          // Shoot at another face
+          const others = all.filter((_, idx) => idx !== i);
           const target = others[Math.floor(Math.random() * others.length)];
           shootFaceAtFace(eyes, shooter.hue1, shooter.hue2, target.el);
-          flashFace(shooter.el, 'rgba(255,255,255,0.3)');
         } else {
-          // Shoot at canvas
           shootAtCanvas(eyes, shooter.hue1, shooter.hue2);
-          flashFace(shooter.el, 'rgba(255,255,255,0.2)');
         }
+        flashFace(shooter.el, 'rgba(255,255,255,0.2)');
       }
 
-      setTimeout(arenaShoot, 300 + Math.random() * 500);
+      phaseShots++;
+      if (phaseShots >= 5 && phase !== 'pyramid') {
+        advancePhase();
+      }
+
+      const speed = phase === 'pyramid' ? 250 + Math.random() * 350 : 350 + Math.random() * 500;
+      setTimeout(shootLoop, speed);
     }
-    arenaShoot();
+    shootLoop();
+  }
+
+  // ── PYRAMID BOSS ──
+  function spawnPyramidBoss() {
+    // Activate pyramid theme if not already active
+    if (!pyramidActive) togglePyramidTheme();
+
+    // Create a boss element in the center
+    pyramidBoss = document.createElement('div');
+    pyramidBoss.id = 'pyramidBoss';
+    pyramidBoss.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:55;width:120px;height:120px;pointer-events:none;';
+    pyramidBoss.innerHTML = '<svg viewBox="0 0 120 120" width="120" height="120">' +
+      '<defs>' +
+      '<radialGradient id="pbGlow"><stop offset="0%" stop-color="rgba(255,217,61,0.6)"/><stop offset="100%" stop-color="transparent"/></radialGradient>' +
+      '<linearGradient id="pbBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffd93d"/><stop offset="100%" stop-color="#b8860b"/></linearGradient>' +
+      '</defs>' +
+      '<circle cx="60" cy="60" r="58" fill="url(#pbGlow)"/>' +
+      '<polygon points="60,8 15,100 105,100" fill="url(#pbBody)" stroke="#ffd93d" stroke-width="1.5" opacity="0.9"/>' +
+      '<polygon points="60,22 30,85 90,85" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>' +
+      '<!-- Eye of Providence -->' +
+      '<ellipse cx="60" cy="58" rx="14" ry="9" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.8"/>' +
+      '<circle cx="60" cy="58" r="5" fill="#ffd93d" stroke="#fff" stroke-width="0.8"/>' +
+      '<circle cx="60" cy="58" r="2" fill="#b8860b"/>' +
+      '<!-- Rays -->' +
+      '<line x1="60" y1="42" x2="60" y2="30" stroke="#ffd93d" stroke-width="0.8" opacity="0.5"/>' +
+      '<line x1="48" y1="46" x2="40" y2="36" stroke="#ffd93d" stroke-width="0.8" opacity="0.4"/>' +
+      '<line x1="72" y1="46" x2="80" y2="36" stroke="#ffd93d" stroke-width="0.8" opacity="0.4"/>' +
+      '<line x1="44" y1="55" x2="32" y2="52" stroke="#ffd93d" stroke-width="0.6" opacity="0.3"/>' +
+      '<line x1="76" y1="55" x2="88" y2="52" stroke="#ffd93d" stroke-width="0.6" opacity="0.3"/>' +
+      '</svg>';
+    document.body.appendChild(pyramidBoss);
+
+    // Animate entrance
+    pyramidBoss.style.opacity = '0';
+    pyramidBoss.style.transition = 'opacity 1s ease, transform 1s ease';
+    requestAnimationFrame(() => {
+      pyramidBoss.style.opacity = '1';
+    });
+
+    // Pyramid boss shoots at all faces
+    let bossAngle = 0;
+    let bossRadius = 0;
+    let bossTargetRadius = Math.min(window.innerWidth, window.innerHeight) * 0.15;
+
+    function bossMove() {
+      if (!pyramidBoss) return;
+      bossAngle += 0.008;
+      if (bossRadius < bossTargetRadius) bossRadius += 0.5;
+      const cx = window.innerWidth / 2 + Math.cos(bossAngle) * bossRadius;
+      const cy = window.innerHeight / 2 + Math.sin(bossAngle * 0.7) * bossRadius * 0.6;
+      pyramidBoss.style.left = cx + 'px';
+      pyramidBoss.style.top = cy + 'px';
+      requestAnimationFrame(bossMove);
+    }
+    bossMove();
+
+    function bossShoot() {
+      if (!pyramidBoss) return;
+      const bRect = pyramidBoss.getBoundingClientRect();
+      const bx = bRect.left + bRect.width / 2;
+      const by = bRect.top + bRect.height / 2;
+      // Pyramid eye as single beam source
+      const bossEyes = {
+        left: { x: bx - 8, y: by },
+        right: { x: bx + 8, y: by }
+      };
+
+      const all = getAllFaces();
+      // Pick a random face to shoot at
+      const target = all[Math.floor(Math.random() * all.length)];
+      const tc = getFaceCenter(target.el);
+
+      // Golden beams
+      lasers.push(new LaserBeam(bossEyes.left.x, bossEyes.left.y, tc.x, tc.y, 45));
+      lasers.push(new LaserBeam(bossEyes.right.x, bossEyes.right.y, tc.x, tc.y, 55));
+      for (let i = 0; i < 35; i++) sparks.push(new Spark(tc.x, tc.y, 45 + Math.random() * 15));
+      flashFace(target.el, 'rgba(255,217,61,0.8)');
+
+      // Pyramid flash
+      pyramidBoss.style.filter = 'brightness(3) drop-shadow(0 0 40px rgba(255,217,61,0.9))';
+      setTimeout(() => { if (pyramidBoss) pyramidBoss.style.filter = ''; }, 120);
+
+      setTimeout(bossShoot, 500 + Math.random() * 700);
+    }
+    setTimeout(bossShoot, 1500);
   }
 
   // Fire beams on click anywhere
@@ -30533,13 +30603,9 @@ function closeMobileNav() {
       }
       _canvasClickCount++;
 
-      // Spawn rival face after 10 clicks
-      if (_canvasClickCount === 10) {
+      // Spawn rival face after 5 clicks (rest happens automatically)
+      if (_canvasClickCount === 5) {
         spawnRivalFace();
-      }
-      // Spawn two left-side faces after 15 clicks
-      if (_canvasClickCount === 15) {
-        spawnLeftFaces();
       }
     } catch(err) {
       console.error('Laser error:', err);
