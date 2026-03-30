@@ -30857,6 +30857,7 @@ function closeMobileNav() {
     clearInterval(mouthAnimInterval);
     clearInterval(typewriterInterval);
     clearTimeout(talkTimeout);
+    speechText.style.fontSize = '';
 
     // Activate highlight style
     speechAuthor.textContent = '';
@@ -30981,6 +30982,7 @@ function closeMobileNav() {
   }, 30000);
   setTimeout(function repeatCanvasMsg() {
     showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing', 14000);
+    speechText.style.fontSize = '1.5em';
     setTimeout(repeatCanvasMsg, 20000);
   }, 70000);
 
