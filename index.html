@@ -30235,8 +30235,8 @@ function closeMobileNav() {
         }, 50);
       }
 
-      // Screen shake after 15 theme changes
-      if (_themeCycleCount >= 15) {
+      // Screen shake after 10 theme changes
+      if (_themeCycleCount >= 10) {
         document.body.style.animation = 'none';
         document.body.offsetHeight; // force reflow
         document.body.style.animation = 'screenShake 0.4s ease-out';
