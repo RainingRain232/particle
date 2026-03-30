@@ -30743,6 +30743,13 @@ function closeMobileNav() {
 
         // Start auto theme cycling every 3 seconds
         startAutoThemeCycle();
+
+        // Swap reveal background images over time
+        const revealEl = document.getElementById('heroRevealImage');
+        if (revealEl) {
+          setTimeout(() => { revealEl.style.background = "url('b.webp') center center / cover no-repeat"; }, 30000);
+          setTimeout(() => { revealEl.style.background = "url('c.jpg') center center / cover no-repeat"; }, 60000);
+        }
       }
     } catch(err) {
       console.error('Laser error:', err);
