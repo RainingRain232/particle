@@ -3845,7 +3845,7 @@
   <div class="hero-content">
     <h1>Diane du Joyeuxculotte</h1>
     <p class="subtitle" id="subtitleText"></p>
-    <p class="tagline">Het beveiligen van digitale systemen op het snijvlak van technologie, strategie en innovatie. <span class="click-hint">Klik in het canvas.</span></p>
+    <p class="tagline">Het beveiligen van digitale systemen op het snijvlak van technologie, strategie en innovatie. <span class="click-hint" id="clickHint" style="display:none;">Klik in het canvas.</span></p>
     <a href="#contact" class="hero-cta">
       <span>Neem contact op</span>
       <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -30514,7 +30514,8 @@ function closeMobileNav() {
       }
 
       phaseShots++;
-      if (phaseShots >= 5 && phase !== 'pyramid') {
+      const shotsNeeded = (phase === 'arena4' || phase === 'arena6') ? 10 : 5;
+      if (phaseShots >= shotsNeeded && phase !== 'pyramid') {
         advancePhase();
       }
 
@@ -30973,6 +30974,11 @@ function closeMobileNav() {
   setTimeout(() => {
     showCustomSpeech('Klik linksbovenin voor een theme', 10000);
   }, 25000);
+  // Show click hint after 30 seconds
+  setTimeout(() => {
+    const hint = document.getElementById('clickHint');
+    if (hint) hint.style.display = '';
+  }, 30000);
   setTimeout(function repeatCanvasMsg() {
     showCustomSpeech('Scroll naar het canvas bovenin en klik daar een paar keer voor een verrassing', 14000);
     setTimeout(repeatCanvasMsg, 20000);
@@ -31759,6 +31765,36 @@ function startShowcase(card) {
       heroContent.style.opacity = 1 - r * 1.5;
     }
   });
+})();
+
+// ── AUTO-TRIGGER PROJECT CARDS ON SCROLL ──
+(() => {
+  let projectsTriggered = false;
+  const projSection = document.getElementById('projects');
+  if (projSection) {
+    const projObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !projectsTriggered) {
+          projectsTriggered = true;
+          // After 2 seconds, trigger magnetic tilt on first card then expand it
+          setTimeout(() => {
+            const firstCard = projSection.querySelector('.project-card');
+            if (!firstCard) return;
+            // Simulate magnetic tilt effect
+            firstCard.style.transition = 'transform 0.6s ease';
+            firstCard.style.transform = 'perspective(800px) rotateX(-4deg) rotateY(4deg) translateZ(5px)';
+            setTimeout(() => {
+              firstCard.style.transform = '';
+              // Click the expand button
+              const btn = firstCard.querySelector('.project-expand-btn');
+              if (btn) toggleProject(btn);
+            }, 800);
+          }, 2000);
+        }
+      });
+    }, { threshold: 0.3 });
+    projObs.observe(projSection);
+  }
 })();
 </script>
 </body>
