@@ -6395,7 +6395,7 @@ function startMatrixRain() {
   window.addEventListener('resize', resize);
 
   function draw() {
-    if (!matrixActive) { matrixAnim = null; return; }
+    if (!matrixActive && !window._matrixPersistent) { matrixAnim = null; return; }
 
     // Fade trail
     ctx.fillStyle = 'rgba(0, 8, 0, 0.05)';
@@ -29016,7 +29016,7 @@ function startVaporOb(){
 // Make all themes mutually exclusive via helper
 function deactivateAllThemesExcept(keep) {
   if (keep !== 'pyramid' && pyramidActive) { pyramidActive = false; document.body.classList.remove('pyramid-theme'); document.getElementById('pyramidToggle').classList.remove('active'); document.getElementById('pyramidCanvas').classList.remove('visible'); document.getElementById('sandCanvas').classList.remove('visible'); if (pyramidAnim) { cancelAnimationFrame(pyramidAnim); pyramidAnim = null; } if (sandAnim) { cancelAnimationFrame(sandAnim); sandAnim = null; } }
-  if (keep !== 'matrix' && matrixActive) { matrixActive = false; document.body.classList.remove('matrix-theme'); document.getElementById('matrixToggle').classList.remove('active'); document.getElementById('matrixRainCanvas').classList.remove('visible'); document.getElementById('neoFaceCanvas').classList.remove('visible'); if (matrixAnim) { cancelAnimationFrame(matrixAnim); matrixAnim = null; } if (neoFaceAnim) { cancelAnimationFrame(neoFaceAnim); neoFaceAnim = null; } document.getElementById('matrixRainCanvas').getContext('2d').clearRect(0,0,9999,9999); document.getElementById('neoFaceCanvas').getContext('2d').clearRect(0,0,9999,9999); }
+  if (keep !== 'matrix' && matrixActive) { matrixActive = false; document.body.classList.remove('matrix-theme'); document.getElementById('matrixToggle').classList.remove('active'); if (!window._matrixPersistent) { document.getElementById('matrixRainCanvas').classList.remove('visible'); if (matrixAnim) { cancelAnimationFrame(matrixAnim); matrixAnim = null; } document.getElementById('matrixRainCanvas').getContext('2d').clearRect(0,0,9999,9999); } document.getElementById('neoFaceCanvas').classList.remove('visible'); if (neoFaceAnim) { cancelAnimationFrame(neoFaceAnim); neoFaceAnim = null; } document.getElementById('neoFaceCanvas').getContext('2d').clearRect(0,0,9999,9999); }
   if (keep !== 'synth' && synthActive) { synthActive = false; document.body.classList.remove('synth-theme'); document.getElementById('synthToggle').classList.remove('active'); document.getElementById('synthGridCanvas').classList.remove('visible'); document.getElementById('synthSunCanvas').classList.remove('visible'); document.getElementById('synthBikeCanvas').classList.remove('visible'); if (synthGridAnim) { cancelAnimationFrame(synthGridAnim); synthGridAnim = null; } if (synthSunAnim) { cancelAnimationFrame(synthSunAnim); synthSunAnim = null; } if (synthBikeAnim) { cancelAnimationFrame(synthBikeAnim); synthBikeAnim = null; } }
   if (keep !== 'frost' && frostActive) { frostActive = false; document.body.classList.remove('frost-theme'); document.getElementById('frostToggle').classList.remove('active'); document.getElementById('snowCanvas').classList.remove('visible'); document.getElementById('frostCrystalCanvas').classList.remove('visible'); if (snowAnim) { cancelAnimationFrame(snowAnim); snowAnim = null; } if (crystalAnim) { cancelAnimationFrame(crystalAnim); crystalAnim = null; } }
   if (keep !== 'void' && voidActive) { voidActive = false; document.body.classList.remove('void-theme'); document.getElementById('voidToggle').classList.remove('active'); document.getElementById('voidCanvas').classList.remove('visible'); document.getElementById('voidObjCanvas').classList.remove('visible'); if (voidAnim) { cancelAnimationFrame(voidAnim); voidAnim = null; } if (voidObjAnim) { cancelAnimationFrame(voidObjAnim); voidObjAnim = null; } document.getElementById('voidCanvas').getContext('2d').clearRect(0,0,9999,9999); }
@@ -30184,6 +30184,48 @@ function closeMobileNav() {
   _shuffleArray(_remainingThemes);
   let _canvasClickCount = 0;
   let _randomIndex = 0;
+  let _themeCycleCount = 0;
+  window._matrixPersistent = false;
+
+  function startAutoThemeCycle() {
+    let idx = 0;
+    setInterval(() => {
+      // Cycle through fixed themes first, then remaining
+      if (idx < _canvasThemeCycle.length) {
+        _canvasThemeCycle[idx]();
+      } else {
+        if (_randomIndex >= _remainingThemes.length) {
+          _randomIndex = 0;
+          _shuffleArray(_remainingThemes);
+        }
+        _remainingThemes[_randomIndex]();
+        _randomIndex++;
+      }
+      idx++;
+      _themeCycleCount++;
+
+      // After 10 theme changes, make matrix rain persistent
+      if (_themeCycleCount >= 10 && !window._matrixPersistent) {
+        window._matrixPersistent = true;
+        if (!matrixAnim) {
+          startMatrixRain();
+        }
+        const mc = document.getElementById('matrixRainCanvas');
+        mc.classList.add('visible');
+      }
+
+      // If matrix is persistent, re-show it after each theme change
+      if (window._matrixPersistent) {
+        setTimeout(() => {
+          const mc = document.getElementById('matrixRainCanvas');
+          mc.classList.add('visible');
+          if (!matrixAnim) {
+            startMatrixRain();
+          }
+        }, 50);
+      }
+    }, 3000);
+  }
 
   // ── MULTI-FACE BATTLE SYSTEM ──
   const extraFaces = [];
@@ -30615,29 +30657,22 @@ function closeMobileNav() {
       // Mouth talk animation + quote
       triggerTalk();
 
-      // Cycle theme on each click
-      if (_canvasClickCount < _canvasThemeCycle.length) {
-        _canvasThemeCycle[_canvasClickCount]();
-      } else {
-        // Pick from remaining themes without repeating until all used
-        if (_randomIndex >= _remainingThemes.length) {
-          _randomIndex = 0;
-          _shuffleArray(_remainingThemes);
-        }
-        _remainingThemes[_randomIndex]();
-        _randomIndex++;
-      }
       _canvasClickCount++;
 
-      // Spawn rival face after 5 clicks (rest happens automatically)
-      if (_canvasClickCount === 5) {
-        spawnRivalFace();
+      // First click sets everything in motion
+      if (_canvasClickCount === 1) {
         // Play ringfinger.flac
         try {
           const audio = new Audio('ringfinger.flac');
           audio.volume = 0.7;
           audio.play().catch(() => {});
         } catch(e) {}
+
+        // Spawn rival face immediately
+        spawnRivalFace();
+
+        // Start auto theme cycling every 3 seconds
+        startAutoThemeCycle();
       }
     } catch(err) {
       console.error('Laser error:', err);
